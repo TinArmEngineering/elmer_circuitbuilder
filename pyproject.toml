@@ -1,0 +1,89 @@
+[project]
+name = "elmer_circuitbuilder"
+
+description = "Python module for creating the circuit simulation definitions for Elmer FEM. The circuit definitions enable easy setup of coils (e.g. massive, stranded, and foil) in 2D and 3D for magnetodynamics applications."
+authors = [{name="Jonathan Velasco", email="velasco_jonathan@hotmail.com"}]
+license = "LGPL-3.0-or-later"
+readme = "README.rst"
+
+keywords = ["elmer", "circuit", "fem", "magnetodynamics"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9"
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/ElmerCSC/elmer_circuitbuilder"
+Repository = "https://github.com/ElmerCSC/elmer_circuitbuilder"
+Issues = "https://github.com/ElmerCSC/elmer_circuitbuilder/issues"
+
+
+[tool.poetry]
+version = "0.0.0"
+
+[tool.poetry.dependencies]
+python = ">=3.7,<3.10"
+# runtime dependencies (install_requires in setup.py) were empty; add here if required
+# example: numpy = "^1.21"
+numpy = "1.21.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.2.4"
+coverage = "^4.5.4"
+
+wheel = "^0.33.6"
+watchdog = "^0.9.0"
+flake8 = "^4.0.1"
+tox = "^3.14.0"
+sphinx = "^1.8.5"
+twine = "^1.14.0"
+
+
+
+[tool.poetry.group.test.dependencies]
+mock = "^5.1.0"
+teamcity-messages = "^1.32"
+
+[tool.coverage.run]
+command_line = "-m pytest"
+
+[tool.coverage.report]
+include = ["ltc_client/*.py"]
+show_missing = true
+
+
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+pattern  = "^(?P<base>\\d+\\.\\d+\\.\\d+)(-?((?P<stage>[a-zA-Z]+)\\.?(?P<revision>\\d+)?))?"
+format-jinja = """
+    {%- if distance == 0 -%}
+        {{- base -}}
+    {%- else -%}
+        {{- base }}.dev{{ distance }}+g{{commit}}
+    {%- endif -%}
+"""
+
+
+[tool.poetry-dynamic-versioning.files.".build_id"]
+persistent-substitution = true
+initial-content-jinja = """##teamcity[buildNumber '{%- if distance == 0 -%}{{- base -}}{%- else -%}{{- base }}.dev{{ distance }}+g{{commit}}{%- endif -%}']"""
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
