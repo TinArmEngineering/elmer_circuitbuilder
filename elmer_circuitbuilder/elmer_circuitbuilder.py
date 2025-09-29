@@ -10,11 +10,13 @@
 #                           Resistors, Inductors and Capacitors
 # ------------------------------------------------------------------------------------------------
 """
+
 import os
 import sys
 import numpy as np
 from datetime import date
 import cmath
+
 
 class Component:
     """
@@ -31,6 +33,7 @@ class Component:
     value : float
         electrical component value in SI units. e.g. A resistor of value=1 is 1 Ohm
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         """
         Parameters
@@ -72,9 +75,9 @@ class R(Component):
     value: float
        Resistance value in Ohms
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         Component.__init__(self, name, pin1, pin2, value)
-
 
 
 class V(Component):
@@ -94,6 +97,7 @@ class V(Component):
     value: float
        Voltage value in Volts
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         Component.__init__(self, name, pin1, pin2, value)
 
@@ -115,9 +119,9 @@ class I(Component):
     value: float
        Current value in Amps
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         Component.__init__(self, name, pin1, pin2, value)
-
 
 
 class L(Component):
@@ -136,6 +140,7 @@ class L(Component):
     value: float
        Inductance value in Henry
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         Component.__init__(self, name, pin1, pin2, value)
 
@@ -156,6 +161,7 @@ class C(Component):
     value: float
        Capacitance value in Farad
     """
+
     def __init__(self, name, pin1, pin2, value=None):
         Component.__init__(self, name, pin1, pin2, value)
 
@@ -198,6 +204,7 @@ class ElmerComponent(Component):
         Sets dimension to "3D"
 
     """
+
     def __init__(self, name, pin1, pin2, component_number, master_body_list, sector=1):
         Component.__init__(self, name, pin1, pin2)
         """
@@ -240,7 +247,7 @@ class ElmerComponent(Component):
         self.__bnd2 = None
 
     def massive(self):
-        """Sets coil_type as a Massive conductor by assigning appropriate keywords under Component in .sif """
+        """Sets coil_type as a Massive conductor by assigning appropriate keywords under Component in .sif"""
         self.__coil_type = "Massive"
 
     def stranded(self, number_turns, resistance):
@@ -288,52 +295,103 @@ class ElmerComponent(Component):
         self.dimension = "3D"
 
     def isClosed(self):
-        """Sets coil type as closed. A closed coil has no terminal boundaries and cuts are needed.
-        """
+        """Sets coil type as closed. A closed coil has no terminal boundaries and cuts are needed."""
         self.__is_closed = True
         return self.__is_closed
 
     def isOpen(self, bnd1, bnd2):
-        """Sets coil type as open. An open coil requires two terminal boundaries.
-        """
+        """Sets coil type as open. An open coil requires two terminal boundaries."""
         self.__bnd1 = bnd1
         self.__bnd2 = bnd2
         self.__is_closed = False
         return self.__is_closed
 
         # Getters
+
     def getCoilType(self):
-        """Gets coil type: Massive, Stranded or Foil winding.
-        """
+        """Gets coil type: Massive, Stranded or Foil winding."""
         return self.__coil_type
 
     def getNumberOfTurns(self):
-        """Gets number of turns for stranded and foil winding
-        """
+        """Gets number of turns for stranded and foil winding"""
         return self.__number_turns
 
     def getResistance(self):
-        """Gets resistance in stranded coil
-        """
+        """Gets resistance in stranded coil"""
         return self.__resistance
 
     def getCoilThickness(self):
-        """Gets thickness in Foil winding
-        """
+        """Gets thickness in Foil winding"""
         return self.__coil_thickness
 
     def getOpenTerminals(self):
-        """Access to boundary terminals defined by isOpen (for open coils)
-        """
+        """Access to boundary terminals defined by isOpen (for open coils)"""
         return [self.__bnd1, self.__bnd2]
 
     def getTerminalType(self):
         return self.__is_closed
 
 
+class StepwiseResistor(Component):
+    def __init__(
+        self,
+        name,
+        pin1,
+        pin2,
+        component_number,
+        resistance,
+        time=None,
+        resistance_after=None,
+    ):
+        Component.__init__(self, name, pin1, pin2)
+        """
+        Parameters
+        ----------
+        name : str
+            the name of the component e.g. Resistor1.
+        pin1 : int
+            component positive network node
+        pin2 : int
+            component negative network node
+        component_number : int
+            Elmer component index
+        resistance : float
+            Resistance value in Ohms
+        time : float, optional
+            Time at which the resistance changes value
+        resistance_after : float, optional
+            Resistance value after time
+        """
+        self.component_number = component_number
+        self.__resistance_before = resistance
+        self.__time = time
+        self.__resistance_after = resistance_after
+        self.__component_type = "resistor"
+
+    @property
+    def resistance(self):
+        """Access to resistance value
+        Returns
+        -------
+        str
+            Returns resistance value as a string. If time and resistance_after are defined,
+            it returns a MATC variable to be used in Elmer's .sif file."""
+        if self.__time and self.__resistance_after:
+            res_string = f'Variable time \n Real MATC "if(tx<{self.__time}) {{{self.__resistance_before}}} else {{{self.__resistance_after}}}"'
+            return res_string
+        else:
+            # if no time and resistance_after is defined, return resistance_before
+            return str(self.__resistance_before)
+
+    @property
+    def component_type(self):
+        return self.__component_type
+
+
 class Circuit:
     """Circuit class is associated to a circuit index,
     holds the components within circuit and requires a reference node (default=1)"""
+
     def __init__(self, index, components, ref_node=1):
         """
         Parameters
@@ -372,14 +430,14 @@ def number_of_circuits(ncircuits):
 
     """
     c = {}
-    for i in range(1, ncircuits+1):
-        c[i] = Circuit(i,[])
+    for i in range(1, ncircuits + 1):
+        c[i] = Circuit(i, [])
 
     return c
 
 
 def get_component_information(components):
-    """ Parses circuit's component information by pins, type and value
+    """Parses circuit's component information by pins, type and value
 
     Parameters
     ----------
@@ -405,7 +463,7 @@ def get_component_information(components):
 
 
 def get_num_nodes(components):
-    """ Sets the number of terminals in circuit network by collecting the unique node names from components
+    """Sets the number of terminals in circuit network by collecting the unique node names from components
 
     Parameters
     ----------
@@ -430,7 +488,7 @@ def get_num_nodes(components):
 
 
 def get_num_edges(components):
-    """ Sets the number of edges used in the incidence matrix based on the number of components
+    """Sets the number of edges used in the incidence matrix based on the number of components
 
     Parameters
     ----------
@@ -446,7 +504,7 @@ def get_num_edges(components):
 
 
 def get_incidence_matrix(components, num_nodes, num_edges, n_ref):
-    """ Populates the incidence matrix A as a directed graph
+    """Populates the incidence matrix A as a directed graph
 
     The matrix is constructed using nodes to represent rows, and edges columns.
     See: https://en.wikipedia.org/wiki/Incidence_matrix
@@ -500,7 +558,7 @@ def get_incidence_matrix(components, num_nodes, num_edges, n_ref):
 
 
 def get_incidence_matrix_str(components, numnodes, numedges, n_ref):
-    """ Populates the string incidence matrix A as a directed graph
+    """Populates the string incidence matrix A as a directed graph
 
     The matrix is constructed using nodes to represent rows, and edges columns.
     See: https://en.wikipedia.org/wiki/Incidence_matrix
@@ -538,14 +596,14 @@ def get_incidence_matrix_str(components, numnodes, numedges, n_ref):
     minus_terminal = [i for i in range(0, numedges)]
 
     # initialize string matrices
-    Amat_plus_str = np.empty((numnodes, numedges), dtype='|S500')
-    Amat_minus_str = np.empty((numnodes, numedges), dtype='|S500')
+    Amat_plus_str = np.empty((numnodes, numedges), dtype="|S500")
+    Amat_minus_str = np.empty((numnodes, numedges), dtype="|S500")
 
     # initialize zero char in all matrices
     for i in range(0, numnodes):
         for j in range(0, numedges):
-            Amat_plus_str[i][j] = ''
-            Amat_minus_str[i][j] = ''
+            Amat_plus_str[i][j] = ""
+            Amat_minus_str[i][j] = ""
 
     for i, j in zip(n1_index, plus_terminal):
         Amat_plus_str[i][j] = str(1)
@@ -562,7 +620,7 @@ def get_incidence_matrix_str(components, numnodes, numedges, n_ref):
 
 
 def get_resistance_matrix(components, nedges, indr, indi, indcap):
-    """ Populates the resistance matrix R
+    """Populates the resistance matrix R
 
      R = R_r + R_i + R_cap where the subscripts r, i, and cap refer to the
      resistance contributions from resistor, current generators, and capacitors respectively.
@@ -611,8 +669,7 @@ def get_resistance_matrix(components, nedges, indr, indi, indcap):
 
 
 def get_resistance_matrix_str(components, nedges, indr, indi, indcap):
-
-    """ Populates the resistance matrix R as a characters/string array.
+    """Populates the resistance matrix R as a characters/string array.
 
     R = R_r + R_i + R_cap where the subscripts r, i, and cap refer to the
     resistance contributions from resistor, current generators, and capacitors respectively.
@@ -643,17 +700,17 @@ def get_resistance_matrix_str(components, nedges, indr, indi, indcap):
 
     """
     # initialize R matrix. R = R_r + R_i + R_cap
-    Rmat_r_str = np.empty((nedges, nedges), dtype='|S500')
-    Rmat_i_str = np.empty((nedges, nedges), dtype='|S500')
-    Rmat_cap_str = np.empty((nedges, nedges), dtype='|S500')
+    Rmat_r_str = np.empty((nedges, nedges), dtype="|S500")
+    Rmat_i_str = np.empty((nedges, nedges), dtype="|S500")
+    Rmat_cap_str = np.empty((nedges, nedges), dtype="|S500")
 
     # initialize zero char in all matrices
 
     for i in range(0, nedges):
         for j in range(0, nedges):
-            Rmat_r_str[i][j] = ''
-            Rmat_i_str[i][j] = ''
-            Rmat_cap_str[i][j] = ''
+            Rmat_r_str[i][j] = ""
+            Rmat_i_str[i][j] = ""
+            Rmat_cap_str[i][j] = ""
 
     for i in indr:
         Rmat_r_str[i][i] = components[i].name
@@ -671,7 +728,7 @@ def get_resistance_matrix_str(components, nedges, indr, indi, indcap):
 
 
 def get_conductance_matrix(nedges, indr, indv, indInd):
-    """ Populates the conductance matrix G
+    """Populates the conductance matrix G
 
      G = G_r + G_v + G_Ind where the subscripts r, v, and Ind refer to the
      resistance contributions from resistor, voltage generators, and inductors respectively.
@@ -720,7 +777,7 @@ def get_conductance_matrix(nedges, indr, indv, indInd):
 
 
 def get_conductance_matrix_str(nedges, indr, indv, indInd):
-    """ Populates the conductance matrix G as a characters/string array.
+    """Populates the conductance matrix G as a characters/string array.
 
     G = G_r + G_v + G_Ind where the subscripts r, V, and Ind refer to the
     resistance contributions from resistor, voltage generators, and inductors respectively.
@@ -749,16 +806,16 @@ def get_conductance_matrix_str(nedges, indr, indv, indInd):
     """
     # initialize G matrix. G = G_r + G_v + G_ind
     # (resistor, voltage generators, inductors)
-    Gmat_r_str = np.empty((nedges, nedges), dtype='|S500')
-    Gmat_v_str = np.empty((nedges, nedges), dtype='|S500')
-    Gmat_ind_str = np.empty((nedges, nedges), dtype='|S500')
+    Gmat_r_str = np.empty((nedges, nedges), dtype="|S500")
+    Gmat_v_str = np.empty((nedges, nedges), dtype="|S500")
+    Gmat_ind_str = np.empty((nedges, nedges), dtype="|S500")
 
     # initialize zero char in all matrices
     for i in range(0, nedges):
         for j in range(0, nedges):
-            Gmat_r_str[i][j] = ''
-            Gmat_v_str[i][j] = ''
-            Gmat_ind_str[i][j] = ''
+            Gmat_r_str[i][j] = ""
+            Gmat_v_str[i][j] = ""
+            Gmat_ind_str[i][j] = ""
 
     for i in indr:
         Gmat_r_str[i][i] = str(-1)
@@ -776,7 +833,7 @@ def get_conductance_matrix_str(nedges, indr, indv, indInd):
 
 
 def get_inductance_matrix(components, nedges, indInd):
-    """ Populates the inductance matrix L
+    """Populates the inductance matrix L
 
     Parameters
     ----------
@@ -805,7 +862,7 @@ def get_inductance_matrix(components, nedges, indInd):
 
 
 def get_inductance_matrix_str(components, nedges, indInd):
-    """ Populates the inductance matrix L as a characters/string array.
+    """Populates the inductance matrix L as a characters/string array.
 
     The string/char output enables easy parsing to output elmer's parametrized output file
 
@@ -826,12 +883,12 @@ def get_inductance_matrix_str(components, nedges, indInd):
         Returns string/char inductance matrix
     """
     # initialize L matrix.
-    Lmat_str = np.empty((nedges, nedges), dtype='|S500')
+    Lmat_str = np.empty((nedges, nedges), dtype="|S500")
 
     # initialize zero char in all matrices
     for i in range(0, nedges):
         for j in range(0, nedges):
-            Lmat_str[i][j] = ''
+            Lmat_str[i][j] = ""
 
     for i in indInd:
         Lmat_str[i][i] = "-" + components[i].name
@@ -840,7 +897,7 @@ def get_inductance_matrix_str(components, nedges, indInd):
 
 
 def get_capacitance_matrix(components, nedges, indcap):
-    """ Populates the capacitance matrix C
+    """Populates the capacitance matrix C
 
     Parameters
     ----------
@@ -868,7 +925,7 @@ def get_capacitance_matrix(components, nedges, indcap):
 
 
 def get_capacitance_matrix_str(components, nedges, indcap):
-    """ Populates the capacitance matrix C as a characters/string array.
+    """Populates the capacitance matrix C as a characters/string array.
 
     The string/char output enables easy parsing to output elmer's parametrized output file
 
@@ -889,12 +946,12 @@ def get_capacitance_matrix_str(components, nedges, indcap):
         Returns string/char capacitance matrix
     """
     # initialize L matrix.
-    Cmat_str = np.empty((nedges, nedges), dtype='|S500')
+    Cmat_str = np.empty((nedges, nedges), dtype="|S500")
 
     # initialize zero char in all matrices
     for i in range(0, nedges):
         for j in range(0, nedges):
-            Cmat_str[i][j] = ''
+            Cmat_str[i][j] = ""
 
     for i in indcap:
         Cmat_str[i][i] = "-" + components[i].name
@@ -903,7 +960,7 @@ def get_capacitance_matrix_str(components, nedges, indcap):
 
 
 def get_rhs(components, nedges, indi, indv):
-    """ Populates Source Vector/ Right Hand Side (RHS) according to ideal sources in components list
+    """Populates Source Vector/ Right Hand Side (RHS) according to ideal sources in components list
 
     rhs = rhs_i + rhs_v, where subscripts i and v represent the current and voltage sources in electrical network
     Note that source vector can account for complex (rhs = complex(rhs_i) + complex(rhs_v)) sources
@@ -945,7 +1002,7 @@ def get_rhs(components, nedges, indi, indv):
             rhs_i_re[i] = np.real(components[i].value)
             rhs_i_im[i] = np.imag(components[i].value)
 
-            rhs_i = rhs_i_re + 1j*rhs_i_im
+            rhs_i = rhs_i_re + 1j * rhs_i_im
 
         else:
             rhs_i[i] = components[i].value
@@ -961,7 +1018,7 @@ def get_rhs(components, nedges, indi, indv):
             rhs_v_re[i] = -np.real(components[i].value)
             rhs_v_im[i] = -np.imag(components[i].value)
 
-            rhs_v = rhs_v_re + 1j*rhs_v_im
+            rhs_v = rhs_v_re + 1j * rhs_v_im
         else:
             rhs_v[i] = -components[i].value
 
@@ -971,7 +1028,7 @@ def get_rhs(components, nedges, indi, indv):
 
 
 def get_rhs_str(components, nedges, indi, indv):
-    """ Populates Source Vector/ Right Hand Side (RHS) according to ideal sources in components list as a str/char
+    """Populates Source Vector/ Right Hand Side (RHS) according to ideal sources in components list as a str/char
 
     rhs = rhs_i + rhs_v, where subscripts i and v represent the current and voltage sources in electrical network
     Note that source vector can account for complex (rhs = str(complex(rhs_i) + complex(rhs_v))) sources
@@ -998,22 +1055,22 @@ def get_rhs_str(components, nedges, indi, indv):
 
     # initialize RHS vector. RHS = RHS_i + RHS_v
     # (current source, voltage source)
-    rhs_v_str = np.empty((nedges, 1), dtype='|S500')
+    rhs_v_str = np.empty((nedges, 1), dtype="|S500")
 
-    rhs_i_str = np.empty((nedges, 1), dtype='|S500')
+    rhs_i_str = np.empty((nedges, 1), dtype="|S500")
 
     # initialize zero char in all matrices
     for i in range(0, nedges):
-        rhs_v_str[i] = ''
-        rhs_i_str[i] = ''
+        rhs_v_str[i] = ""
+        rhs_i_str[i] = ""
 
-    #complex_switch = True  # used to create separate real and imag rhs
+    # complex_switch = True  # used to create separate real and imag rhs
 
     for i in indi:
         rhs_i_str[i] = components[i].name
 
     for i in indv:
-        rhs_v_str[i] = '-' + components[i].name  # -value
+        rhs_v_str[i] = "-" + components[i].name  # -value
 
     rhs_str = rhs_v_str + rhs_i_str
 
@@ -1021,7 +1078,7 @@ def get_rhs_str(components, nedges, indi, indv):
 
 
 def get_indices(components):
-    """ Creates indices for each component to assist in matrix population (incidence and component)
+    """Creates indices for each component to assist in matrix population (incidence and component)
 
     Parameters
     ----------
@@ -1055,12 +1112,14 @@ def get_indices(components):
             indcap.append(i)
         if isinstance(comp, ElmerComponent):
             indcelm.append(i)
+        if isinstance(comp, StepwiseResistor):
+            indcelm.append(i)
 
     return indr, indv, indi, indInd, indcap, indcelm
 
 
 def get_tableau_matrix(Amat, Rmat, Gmat, Lmat, Cmat, fvec, num_nodes, num_edges):
-    """ Populates circuit network matrices according to the Sparse Tableau Method
+    """Populates circuit network matrices according to the Sparse Tableau Method
 
     Parameters
     ----------
@@ -1095,25 +1154,49 @@ def get_tableau_matrix(Amat, Rmat, Gmat, Lmat, Cmat, fvec, num_nodes, num_edges)
         In Elmer A = Mmat1, B = Mmat2 and source = bvec
     """
 
-    M_kcl = np.block([Amat, np.zeros(shape=(num_nodes - 1, num_edges)), np.zeros(shape=(num_nodes - 1, num_nodes - 1))])
-    M_kvl = np.block([np.zeros(shape=(num_edges, num_edges)), -np.eye(num_edges, num_edges), np.transpose(Amat)])
+    M_kcl = np.block(
+        [
+            Amat,
+            np.zeros(shape=(num_nodes - 1, num_edges)),
+            np.zeros(shape=(num_nodes - 1, num_nodes - 1)),
+        ]
+    )
+    M_kvl = np.block(
+        [
+            np.zeros(shape=(num_edges, num_edges)),
+            -np.eye(num_edges, num_edges),
+            np.transpose(Amat),
+        ]
+    )
     M_comp = np.block([Rmat, Gmat, np.zeros(shape=(num_edges, num_nodes - 1))])
 
     # B matrix in Elmer
     Mmat1 = np.block([[M_kcl], [M_kvl], [M_comp]])
 
     # Source term
-    bvec = np.block([[np.zeros(shape=(num_nodes - 1, 1))], [np.zeros(shape=(num_edges, 1))], [fvec]])
+    bvec = np.block(
+        [[np.zeros(shape=(num_nodes - 1, 1))], [np.zeros(shape=(num_edges, 1))], [fvec]]
+    )
 
     # A matrix in Elmer
-    Mmat2 = np.block([[np.zeros(shape=(num_edges+(num_nodes-1), 2*num_edges+(num_nodes-1)))],
-                      [Lmat, Cmat, np.zeros(shape=(num_edges, num_nodes - 1))]])
+    Mmat2 = np.block(
+        [
+            [
+                np.zeros(
+                    shape=(num_edges + (num_nodes - 1), 2 * num_edges + (num_nodes - 1))
+                )
+            ],
+            [Lmat, Cmat, np.zeros(shape=(num_edges, num_nodes - 1))],
+        ]
+    )
 
     return Mmat1, Mmat2, bvec
 
 
-def get_tableau_matrix_str(Amat_str, Rmat_str, Gmat_str, Lmat_str, Cmat_str, fvec_str, numnodes, numedges):
-    """ Populates circuit network matrices according to the Sparse Tableau Method as str/char array
+def get_tableau_matrix_str(
+    Amat_str, Rmat_str, Gmat_str, Lmat_str, Cmat_str, fvec_str, numnodes, numedges
+):
+    """Populates circuit network matrices according to the Sparse Tableau Method as str/char array
 
     Parameters
     ----------
@@ -1149,57 +1232,97 @@ def get_tableau_matrix_str(Amat_str, Rmat_str, Gmat_str, Lmat_str, Cmat_str, fve
     """
 
     # Set up matrices based on Kirchoff's Laws and Component Equations
-    M_kcl_str = np.block([Amat_str, np.zeros(shape=(numnodes - 1, numedges)),
-                          np.zeros(shape=(numnodes - 1, numnodes - 1))])
-    M_kvl_str = np.block([np.zeros(shape=(numedges, numedges)), -np.eye(numedges, numedges),
-                          np.transpose(Amat_str.copy())])
-    M_comp_str = np.block([Rmat_str, Gmat_str, np.zeros(shape=(numedges, numnodes - 1))])
+    M_kcl_str = np.block(
+        [
+            Amat_str,
+            np.zeros(shape=(numnodes - 1, numedges)),
+            np.zeros(shape=(numnodes - 1, numnodes - 1)),
+        ]
+    )
+    M_kvl_str = np.block(
+        [
+            np.zeros(shape=(numedges, numedges)),
+            -np.eye(numedges, numedges),
+            np.transpose(Amat_str.copy()),
+        ]
+    )
+    M_comp_str = np.block(
+        [Rmat_str, Gmat_str, np.zeros(shape=(numedges, numnodes - 1))]
+    )
 
     # B matrix in Elmer
     Mmat1_str = np.block([[M_kcl_str], [M_kvl_str], [M_comp_str]])
 
     # Source term
     for i in range(len(fvec_str)):
-        if fvec_str[i].item().decode() == '' or fvec_str[i].item().decode() == '0.0' or fvec_str[i].item().decode() == '-0.0':
+        if (
+            fvec_str[i].item().decode() == ""
+            or fvec_str[i].item().decode() == "0.0"
+            or fvec_str[i].item().decode() == "-0.0"
+        ):
             fvec_str[i] = str(0)
-    bvec_str = np.block([[np.zeros(shape=(numnodes - 1, 1))], [np.zeros(shape=(numedges, 1))], [fvec_str]])
+    bvec_str = np.block(
+        [
+            [np.zeros(shape=(numnodes - 1, 1))],
+            [np.zeros(shape=(numedges, 1))],
+            [fvec_str],
+        ]
+    )
 
     # redundant cleanup for int format looks
     for i in range(len(bvec_str)):
-        if bvec_str[i][0].item().decode() == '' or bvec_str[i][0].item().decode() == '0.0' or bvec_str[i][0].item().decode() == '-0.0':
+        if (
+            bvec_str[i][0].item().decode() == ""
+            or bvec_str[i][0].item().decode() == "0.0"
+            or bvec_str[i][0].item().decode() == "-0.0"
+        ):
             bvec_str[i][0] = str(0)
 
     # A matrix in Elmer
-    Mmat2_str = np.block([[np.zeros(shape=(numedges+(numnodes-1), 2*numedges+(numnodes-1)))],
-                          [Lmat_str, Cmat_str, np.zeros(shape=(numedges, numnodes - 1))]])
+    Mmat2_str = np.block(
+        [
+            [
+                np.zeros(
+                    shape=(numedges + (numnodes - 1), 2 * numedges + (numnodes - 1))
+                )
+            ],
+            [Lmat_str, Cmat_str, np.zeros(shape=(numedges, numnodes - 1))],
+        ]
+    )
 
     rows, cols = Mmat1_str.shape
     for i in range(0, rows):
         for j in range(0, cols):
-            if Mmat1_str[i][j].item().decode() == '' or Mmat1_str[i][j].item().decode() == '-0.0' \
-                or Mmat1_str[i][j].item().decode() == '0.0':
+            if (
+                Mmat1_str[i][j].item().decode() == ""
+                or Mmat1_str[i][j].item().decode() == "-0.0"
+                or Mmat1_str[i][j].item().decode() == "0.0"
+            ):
                 Mmat1_str[i][j] = str(0)
-            if Mmat1_str[i][j].item().decode() == '-1.0':
+            if Mmat1_str[i][j].item().decode() == "-1.0":
                 Mmat1_str[i][j] = str(-1)
-            if Mmat1_str[i][j].item().decode() == '1.0':
+            if Mmat1_str[i][j].item().decode() == "1.0":
                 Mmat1_str[i][j] = str(1)
 
     rows, cols = Mmat2_str.shape
     for i in range(0, rows):
         for j in range(0, cols):
-            if Mmat2_str[i][j].item().decode() == '' or Mmat2_str[i][j].item().decode() == '-0.0' \
-                or Mmat2_str[i][j].item().decode() == '0.0':
+            if (
+                Mmat2_str[i][j].item().decode() == ""
+                or Mmat2_str[i][j].item().decode() == "-0.0"
+                or Mmat2_str[i][j].item().decode() == "0.0"
+            ):
                 Mmat2_str[i][j] = str(0)
-            if Mmat2_str[i][j].item().decode() == '-1.0':
+            if Mmat2_str[i][j].item().decode() == "-1.0":
                 Mmat2_str[i][j] = str(-1)
-            if Mmat2_str[i][j].item().decode() == '1.0':
+            if Mmat2_str[i][j].item().decode() == "1.0":
                 Mmat2_str[i][j] = str(1)
 
     return Mmat1_str, Mmat2_str, bvec_str
 
 
 def solve_system(M1, M2, b, freq=50):
-    """ Solve a linear matrix equation using numpy.linalg.solve¶
+    """Solve a linear matrix equation using numpy.linalg.solve¶
 
     Parameters
     ----------
@@ -1322,23 +1445,27 @@ def create_unknown_name(components, ref_node, circuit_number):
 
     # create current I entries
     for i, component in enumerate(components):
-        if isinstance(component, ElmerComponent):
-            current_string = "\"i_component(" + str(component.component_number) + ")\""
+        if isinstance(component, ElmerComponent) or isinstance(
+            component, StepwiseResistor
+        ):
+            current_string = '"i_component(' + str(component.component_number) + ')"'
         else:
-            current_string = "\"i_" + component.name + "\""
+            current_string = '"i_' + component.name + '"'
         unknown_names.append(current_string)
 
     # create current V entries
     for i, component in enumerate(components):
-        if isinstance(component, ElmerComponent):
-            voltage_string = "\"v_component(" + str(component.component_number) + ")\""
+        if isinstance(component, ElmerComponent) or isinstance(
+            component, StepwiseResistor
+        ):
+            voltage_string = '"v_component(' + str(component.component_number) + ')"'
         else:
-            voltage_string = "\"v_" + component.name + "\""
+            voltage_string = '"v_' + component.name + '"'
         unknown_names.append(voltage_string)
 
     # create current potential entries
     for i, node_name in enumerate(unknown_nodes):
-        node_string = "\"u_" + str(node_name) + "_circuit_" + str(circuit_number) + "\""
+        node_string = '"u_' + str(node_name) + "_circuit_" + str(circuit_number) + '"'
         unknown_names.append(node_string)
 
     # v_comp rows
@@ -1350,7 +1477,6 @@ def create_unknown_name(components, ref_node, circuit_number):
 
 
 def get_zero_rows(M1, M2, b):
-
     """
     Takes the sparse tableau matrices and source vector and outputs the row indices for rows populated with zeros
 
@@ -1410,14 +1536,16 @@ def get_zero_rows_str(M1_str, M2_str, b_str):
             m1_ = M1_str[i][j].item().decode().strip("-")
             m2_ = M2_str[i][j].item().decode().strip("-")
 
-            zero_condition1 = (m1_ == str(0.0) or m1_ == str(0)) and (m2_ == str(0.0) or m2_ == str(0))
+            zero_condition1 = (m1_ == str(0.0) or m1_ == str(0)) and (
+                m2_ == str(0.0) or m2_ == str(0)
+            )
 
             if zero_condition1:
                 zero_counter += 1
 
         b_ = b_str[i][0].item().decode().strip("-")
 
-        zero_condition2 = (b_ == str(0.0) or b_ == str(0))
+        zero_condition2 = b_ == str(0.0) or b_ == str(0)
 
         if (zero_counter == cols) and zero_condition2:
             zero_row_index.append(i)
@@ -1444,21 +1572,26 @@ def write_file_header(circuit, ofile):
     None
     """
 
-    for i in range(1, len(circuit)+1):
+    for i in range(1, len(circuit) + 1):
 
         # loop over all circuits
         c = circuit[i]
         components = c.components[0]
 
         # only run script if there are no elmer components
-        check_elmer_instance = [isinstance(components[i], ElmerComponent) for i in range(len(components))]
-        check_component_values = [(component.value is None) for component in components]
+        check_elmer_instance = [
+            isinstance(components[i], ElmerComponent)
+            or isinstance(components[i], StepwiseResistor)
+            for i in range(len(components))
+        ]
+
+        # check_component_values = [(component.value is None) for component in components]
 
         # condition that no elmer components in circuit
         isElmerComponent = True in check_elmer_instance
         # isValueNone = True in check_component_values
 
-        # if there are elmer components or there's no value component break the loop
+        # if there are elmer components  break the loop
         if not isElmerComponent:
             return 0
 
@@ -1466,14 +1599,29 @@ def write_file_header(circuit, ofile):
     if os.path.isfile(ofile) is True:
         os.remove(ofile)
 
-    elmer_file = open(ofile, 'w')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
-    print("! ElmerFEM Circuit Generated: " + str(date.today().strftime("%B %d, %Y")), file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "w")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
+    print(
+        "! ElmerFEM Circuit Generated: " + str(date.today().strftime("%B %d, %Y")),
+        file=elmer_file,
+    )
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Number of Circuits in Model", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("$ Circuits = " + str(len(circuit)), file=elmer_file)
     print("", file=elmer_file)
     elmer_file.close()
@@ -1499,16 +1647,53 @@ def write_matrix_initialization(c, num_variables, ofile):
     """
 
     # Write matrices in Elmer Format
-    elmer_file = open(ofile, 'a')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "a")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Matrix Size Declaration and Matrix Initialization", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("$ C." + str(c.index) + ".variables = " + str(num_variables), file=elmer_file)
-    print("$ C." + str(c.index) + ".perm = zeros(" + "C." + str(c.index) + ".variables" + ")", file=elmer_file)
-    print("$ C." + str(c.index) + ".A = zeros(" + "C." + str(c.index) + ".variables," + "C." + str(c.index) +
-          ".variables" + ")", file=elmer_file)
-    print("$ C." + str(c.index) + ".B = zeros(" + "C." + str(c.index) + ".variables," + "C." + str(c.index) +
-          ".variables" + ")", file=elmer_file)
+    print(
+        "$ C."
+        + str(c.index)
+        + ".perm = zeros("
+        + "C."
+        + str(c.index)
+        + ".variables"
+        + ")",
+        file=elmer_file,
+    )
+    print(
+        "$ C."
+        + str(c.index)
+        + ".A = zeros("
+        + "C."
+        + str(c.index)
+        + ".variables,"
+        + "C."
+        + str(c.index)
+        + ".variables"
+        + ")",
+        file=elmer_file,
+    )
+    print(
+        "$ C."
+        + str(c.index)
+        + ".B = zeros("
+        + "C."
+        + str(c.index)
+        + ".variables,"
+        + "C."
+        + str(c.index)
+        + ".variables"
+        + ")",
+        file=elmer_file,
+    )
     print("", file=elmer_file)
     elmer_file.close()
 
@@ -1534,13 +1719,22 @@ def write_unknown_vector(c, unknown_names, ofile):
     """
 
     # Write matrices in Elmer Format
-    elmer_file = open(ofile, 'a')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "a")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Dof/Unknown Vector Definition", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
 
     for i, name in enumerate(unknown_names):
-        print("$ C." + str(c.index) + ".name." + str(i+1) + " = " + name, file=elmer_file)
+        print(
+            "$ C." + str(c.index) + ".name." + str(i + 1) + " = " + name,
+            file=elmer_file,
+        )
 
     print("", file=elmer_file)
     elmer_file.close()
@@ -1564,14 +1758,30 @@ def write_source_vector(c, source_vector, ofile):
     ----------
     None
     """
-    elmer_file = open(ofile, 'a')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "a")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Source Vector Definition", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     for i, source_name in enumerate(source_vector):
-        if(source_name[0].item().decode() != str(0.0)) and (source_name[0].item().decode() != str(0)):
-            print("$ C." + str(c.index) + ".source." + str(i+1) + " = \"" + source_name[0].item().decode().strip("-") +
-                  "_Source\"", file=elmer_file)
+        if (source_name[0].item().decode() != str(0.0)) and (
+            source_name[0].item().decode() != str(0)
+        ):
+            print(
+                "$ C."
+                + str(c.index)
+                + ".source."
+                + str(i + 1)
+                + ' = "'
+                + source_name[0].item().decode().strip("-")
+                + '_Source"',
+                file=elmer_file,
+            )
     print("", file=elmer_file)
     elmer_file.close()
 
@@ -1605,63 +1815,93 @@ def write_kcl_equations(c, num_nodes, num_variables, elmer_Amat, elmer_Bmat, ofi
     None
     """
 
-    elmer_file = open(ofile, 'a')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "a")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! KCL Equations", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
 
     for i in range(num_nodes - 1):
         for j in range(num_variables):
-            if (elmer_Bmat[i][j].item().decode() != str(0)) and (elmer_Bmat[i][j].item().decode() != str(0.0)):
-                print("$ C." + str(c.index) + ".B(" + str(i) + "," + str(j) + ")" + " = "
-                      + str(elmer_Bmat[i][j].item().decode()),
-                      file=elmer_file)
+            if (elmer_Bmat[i][j].item().decode() != str(0)) and (
+                elmer_Bmat[i][j].item().decode() != str(0.0)
+            ):
+                print(
+                    "$ C."
+                    + str(c.index)
+                    + ".B("
+                    + str(i)
+                    + ","
+                    + str(j)
+                    + ")"
+                    + " = "
+                    + str(elmer_Bmat[i][j].item().decode()),
+                    file=elmer_file,
+                )
 
     for i in range(num_nodes - 1):
         for j in range(num_variables):
-            if (elmer_Amat[i][j].item().decode() != str(0)) and (elmer_Amat[i][j].item().decode() != str(0.0)):
-                print("$ C." + str(c.index) + ".A(" + str(i) + "," + str(j) + ")" + " = "
-                      + str(elmer_Amat[i][j].item().decode()),
-                      file=elmer_file)
+            if (elmer_Amat[i][j].item().decode() != str(0)) and (
+                elmer_Amat[i][j].item().decode() != str(0.0)
+            ):
+                print(
+                    "$ C."
+                    + str(c.index)
+                    + ".A("
+                    + str(i)
+                    + ","
+                    + str(j)
+                    + ")"
+                    + " = "
+                    + str(elmer_Amat[i][j].item().decode()),
+                    file=elmer_file,
+                )
 
     print("", file=elmer_file)
     elmer_file.close()
 
 
-def write_kvl_equations(c, num_nodes, num_edges, num_variables, elmer_Amat, elmer_Bmat, unknown_names, ofile):
+def write_kvl_equations(
+    c, num_nodes, num_edges, num_variables, elmer_Amat, elmer_Bmat, unknown_names, ofile
+):
     """
-    Writes Kirchhoff Voltage Law (KVL) in circuit file
+       Writes Kirchhoff Voltage Law (KVL) in circuit file
 
-    Parameters
+       Parameters
+       ----------
+       c : dict
+           A dictionary of Circuit instances
+
+       num_nodes : int
+           number of unique nodes in circuit network
+
+       num_edges : int
+           number of edges/components in circuit network
+
+       num_variables : int
+           number of variables/uknowns in circuit definition
+
+       elmer_Amat : numpy.ndarray of `bytes` strings
+           Elmer format damping matrix
+
+       elmer_Bmat : numpy.ndarray of `bytes` strings
+           Elmer format stiffness matrix
+
+       unknown_names : list of str
+           Name of degrees of freedom / Unknowns in n entry vector
+
+       ofile : str
+           output file name
+
+    Returns
     ----------
-    c : dict
-        A dictionary of Circuit instances
-
-    num_nodes : int
-        number of unique nodes in circuit network
-
-    num_edges : int
-        number of edges/components in circuit network
-
-    num_variables : int
-        number of variables/uknowns in circuit definition
-
-    elmer_Amat : numpy.ndarray of `bytes` strings
-        Elmer format damping matrix
-
-    elmer_Bmat : numpy.ndarray of `bytes` strings
-        Elmer format stiffness matrix
-
-    unknown_names : list of str
-        Name of degrees of freedom / Unknowns in n entry vector
-
-    ofile : str
-        output file name
-
- Returns
- ----------
- None
- """
+    None
+    """
 
     range_init = num_nodes - 1
 
@@ -1675,100 +1915,178 @@ def write_kvl_equations(c, num_nodes, num_edges, num_variables, elmer_Amat, elme
 
     source_sign_index = []
     for i, name in enumerate(unknown_names):
-        if (name.strip('"').strip("v_") in source_names) or (name.strip('"').strip("i_") in source_names):
+        if (name.strip('"').strip("v_") in source_names) or (
+            name.strip('"').strip("i_") in source_names
+        ):
             source_sign_index.append(i)
         else:
             source_sign_index.append(None)
 
-    elmer_file = open(ofile, 'a')
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    elmer_file = open(ofile, "a")
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! KVL Equations", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
 
     for i in range(range_init, num_edges + range_init):
         for j in range(num_variables):
-            if (elmer_Bmat[i][j].item().decode().strip("-") != str(0)) and (elmer_Bmat[i][j].item().decode().strip("-") != str(0.0)):
+            if (elmer_Bmat[i][j].item().decode().strip("-") != str(0)) and (
+                elmer_Bmat[i][j].item().decode().strip("-") != str(0.0)
+            ):
                 kvl_without_decimal = elmer_Bmat[i][j].item().decode().split(".")[0]
-                if(j == source_sign_index[j]):
-                    if("-" in kvl_without_decimal):
-                        print("$ C." + str(c.index) + ".B(" + str(i) + "," + str(j) + ")" + " = "
-                              + str(kvl_without_decimal.strip("-")),
-                              file=elmer_file)
+                if j == source_sign_index[j]:
+                    if "-" in kvl_without_decimal:
+                        print(
+                            "$ C."
+                            + str(c.index)
+                            + ".B("
+                            + str(i)
+                            + ","
+                            + str(j)
+                            + ")"
+                            + " = "
+                            + str(kvl_without_decimal.strip("-")),
+                            file=elmer_file,
+                        )
                     else:
-                        print("$ C." + str(c.index) + ".B(" + str(i) + "," + str(j) + ")" + " = -"
-                              + str(kvl_without_decimal.strip("-")),
-                              file=elmer_file)
+                        print(
+                            "$ C."
+                            + str(c.index)
+                            + ".B("
+                            + str(i)
+                            + ","
+                            + str(j)
+                            + ")"
+                            + " = -"
+                            + str(kvl_without_decimal.strip("-")),
+                            file=elmer_file,
+                        )
                 else:
-                    print("$ C." + str(c.index) + ".B(" + str(i) + "," + str(j) + ")" + " = "
-                          + str(kvl_without_decimal),
-                          file=elmer_file)
-
+                    print(
+                        "$ C."
+                        + str(c.index)
+                        + ".B("
+                        + str(i)
+                        + ","
+                        + str(j)
+                        + ")"
+                        + " = "
+                        + str(kvl_without_decimal),
+                        file=elmer_file,
+                    )
 
     for i in range(range_init, num_edges + range_init):
         for j in range(num_variables):
-            if (elmer_Amat[i][j].item().decode().strip("-") != str(0)) and (elmer_Amat[i][j].item().decode().strip("-") != str(0.0)):
-                print("$ C." + str(c.index) + ".A(" + str(i) + "," + str(j) + ")" + " = "
-                      + str(elmer_Amat[i][j].item().decode()),
-                      file=elmer_file)
+            if (elmer_Amat[i][j].item().decode().strip("-") != str(0)) and (
+                elmer_Amat[i][j].item().decode().strip("-") != str(0.0)
+            ):
+                print(
+                    "$ C."
+                    + str(c.index)
+                    + ".A("
+                    + str(i)
+                    + ","
+                    + str(j)
+                    + ")"
+                    + " = "
+                    + str(elmer_Amat[i][j].item().decode()),
+                    file=elmer_file,
+                )
     print("", file=elmer_file)
 
     elmer_file.close()
 
 
-def write_component_equations(c, num_nodes, num_edges, num_variables, elmer_Amat, elmer_Bmat, ofile):
+def write_component_equations(
+    c, num_nodes, num_edges, num_variables, elmer_Amat, elmer_Bmat, ofile
+):
     """
-    Writes Component Equations in circuit file.
+       Writes Component Equations in circuit file.
 
-    Parameters
+       Parameters
+       ----------
+       c : dict
+           A dictionary of Circuit instances
+
+       num_nodes : int
+           number of unique nodes in circuit network
+
+       num_edges : int
+           number of edges/components in circuit network
+
+       num_variables : int
+           number of variables/uknowns in circuit definition
+
+       elmer_Amat : numpy.ndarray of `bytes` strings
+           Elmer format damping matrix
+
+       elmer_Bmat : numpy.ndarray of `bytes` strings
+           Elmer format stiffness matrix
+
+       ofile : str
+           output file name
+
+    Returns
     ----------
-    c : dict
-        A dictionary of Circuit instances
-
-    num_nodes : int
-        number of unique nodes in circuit network
-
-    num_edges : int
-        number of edges/components in circuit network
-
-    num_variables : int
-        number of variables/uknowns in circuit definition
-
-    elmer_Amat : numpy.ndarray of `bytes` strings
-        Elmer format damping matrix
-
-    elmer_Bmat : numpy.ndarray of `bytes` strings
-        Elmer format stiffness matrix
-
-    ofile : str
-        output file name
-
- Returns
- ----------
- None
- """
+    None
+    """
 
     range_init = num_nodes - 1 + num_edges
 
-    elmer_file = open(ofile, 'a')
+    elmer_file = open(ofile, "a")
 
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Component Equations", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
-
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
 
     for i in range(range_init, num_edges + range_init):
         for j in range(num_variables):
-            if (elmer_Bmat[i][j].item().decode().strip("-") != str(0)) and (elmer_Bmat[i][j].item().decode().strip("-") != str(0.0)):
-                print("$ C." + str(c.index) + ".B(" + str(i) + "," + str(j) + ")" + " = " + str(elmer_Bmat[i][j].item().decode()),
-                      file=elmer_file)
+            if (elmer_Bmat[i][j].item().decode().strip("-") != str(0)) and (
+                elmer_Bmat[i][j].item().decode().strip("-") != str(0.0)
+            ):
+                print(
+                    "$ C."
+                    + str(c.index)
+                    + ".B("
+                    + str(i)
+                    + ","
+                    + str(j)
+                    + ")"
+                    + " = "
+                    + str(elmer_Bmat[i][j].item().decode()),
+                    file=elmer_file,
+                )
 
     print("", file=elmer_file)
 
     for i in range(range_init, num_edges + range_init):
         for j in range(num_variables):
-            if (elmer_Amat[i][j].item().decode().strip("-") != str(0)) and  (elmer_Amat[i][j].item().decode().strip("-") != str(0.0)):
-                print("$ C." + str(c.index) + ".A(" + str(i) + "," + str(j) + ")" + " = " + str(elmer_Amat[i][j].item().decode()),
-                      file=elmer_file)
+            if (elmer_Amat[i][j].item().decode().strip("-") != str(0)) and (
+                elmer_Amat[i][j].item().decode().strip("-") != str(0.0)
+            ):
+                print(
+                    "$ C."
+                    + str(c.index)
+                    + ".A("
+                    + str(i)
+                    + ","
+                    + str(j)
+                    + ")"
+                    + " = "
+                    + str(elmer_Amat[i][j].item().decode()),
+                    file=elmer_file,
+                )
 
     print("", file=elmer_file)
 
@@ -1805,31 +2123,42 @@ def write_sif_additions(c, source_vector, ofile):
     source_components = []
     elmer_components = []
     for i, component in enumerate(components):
-        if (isinstance(component, I) or isinstance(component, V)) and \
-            component not in source_components:
+        if (
+            isinstance(component, I) or isinstance(component, V)
+        ) and component not in source_components:
             source_components.append(component)
-        if (isinstance(component, ElmerComponent)) and \
-            component not in elmer_components:
+        if (
+            isinstance(component, ElmerComponent)
+            or isinstance(component, StepwiseResistor)
+        ) and component not in elmer_components:
             elmer_components.append(component)
 
     # store source parameter value
     source_str_values = []
     for source_val in source_vector:
-        if source_val[0].item().decode() != str(0.0) and source_val[0].item().decode() != str(0) \
-            and source_val[0].item().decode() not in source_str_values:
+        if (
+            source_val[0].item().decode() != str(0.0)
+            and source_val[0].item().decode() != str(0)
+            and source_val[0].item().decode() not in source_str_values
+        ):
             source_str_values.append(source_val[0].item().decode())
 
+    elmer_file = open(ofile, "a")
 
-    elmer_file = open(ofile, 'a')
-
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Additions in SIF file", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     if len(elmer_components) > 0:
         for ecomp in elmer_components:
 
             print("Component " + str(ecomp.component_number), file=elmer_file)
-            print("  Name = \"" + str( ecomp.name) + "\"", file=elmer_file)
+            print('  Name = "' + str(ecomp.name) + '"', file=elmer_file)
 
             # split integer and string list members: master bodies, and master bodies name
             str_mbody = []
@@ -1838,70 +2167,133 @@ def write_sif_additions(c, source_vector, ofile):
             int_mb_count = 0
             for mbody in ecomp.master_bodies:
 
-                if( type(mbody) == str):
+                if type(mbody) == str:
                     str_mbody.append(mbody)
                     str_mb_count += 1
 
-                if(type(mbody) == int):
+                if type(mbody) == int:
                     int_mbody.append(str(mbody))
                     int_mb_count += 1
 
-            if(str_mbody):
+            if str_mbody:
                 joined_str_master_names = ", ".join(str_mbody)
-                print("  Master Bodies Name = " + str(joined_str_master_names), file=elmer_file)
-            if(int_mbody):
+                print(
+                    "  Master Bodies Name = " + str(joined_str_master_names),
+                    file=elmer_file,
+                )
+            if int_mbody:
                 joined_str_master_bodies = " ".join(int_mbody)
-                print("  Master Bodies(" + str(int_mb_count) + ") = " +
-                      str(joined_str_master_bodies) , file=elmer_file)
-            # ------------------------------------------------------------------------------
-            print("  Coil Type = \"" + str(ecomp.getCoilType()) + "\"", file=elmer_file)
-            if ecomp.getCoilType() == "Stranded":
-                print("  Number of Turns = Real $ N_" + str(ecomp.name), file=elmer_file)
-                print("  Resistance = Real $ R_" + str(ecomp.name), file=elmer_file)
+                print(
+                    "  Master Bodies("
+                    + str(int_mb_count)
+                    + ") = "
+                    + str(joined_str_master_bodies),
+                    file=elmer_file,
+                )
 
-            if ecomp.getCoilType() == "Foil winding":
-                print("  Number of Turns = Real $ N_" + str(ecomp.name), file=elmer_file)
-                print("  Coil Thickness = Real $ L_" + str(ecomp.name), file=elmer_file)
+            if ecomp.component_type == "resistor":
+                print("  Component  Type = String Resistor", file=elmer_file)
+                print(f"  Resistance = {ecomp.resistance}", file=elmer_file)
+            else:
+                # ------------------------------------------------------------------------------
+                print(
+                    '  Coil Type = "' + str(ecomp.getCoilType()) + '"', file=elmer_file
+                )
+                if ecomp.getCoilType() == "Stranded":
+                    print(
+                        "  Number of Turns = Real $ N_" + str(ecomp.name),
+                        file=elmer_file,
+                    )
+                    print("  Resistance = Real $ R_" + str(ecomp.name), file=elmer_file)
 
-            if(ecomp.dimension == "3D"):
-                print(" ", file=elmer_file)
-                print("  ! Additions for 3D Coil", file=elmer_file)
+                if ecomp.getCoilType() == "Foil winding":
+                    print(
+                        "  Number of Turns = Real $ N_" + str(ecomp.name),
+                        file=elmer_file,
+                    )
+                    print(
+                        "  Coil Thickness = Real $ L_" + str(ecomp.name),
+                        file=elmer_file,
+                    )
 
-                # massive coils
-                if(ecomp.getCoilType() == "Massive"):
-                    if(ecomp.isClosed()):
-                        print("  Coil Use W Vector = Logical True", file=elmer_file)
-                        print("  W Vector Variable Name = String "'CoilCurrent e'"", file=elmer_file)
-                        print("  Electrode Area = Real $ Ae_" + str(ecomp.name) , file=elmer_file)
-                    else:
-                        print("  Coil Use W Vector = Logical True", file=elmer_file)
-                        print("  W Vector Variable Name = String "'CoilCurrent e'"", file=elmer_file)
-                        print("  Electrode Area = Real $ Ae_" + str(ecomp.name) , file=elmer_file)
+                if ecomp.dimension == "3D":
+                    print(" ", file=elmer_file)
+                    print("  ! Additions for 3D Coil", file=elmer_file)
 
-                # stranded coils
-                if(ecomp.getCoilType() == "Stranded"):
-                    if(ecomp.getTerminalType()): # if true = closed
-                        print("  Coil Use W Vector = Logical True", file=elmer_file)
-                        print("  W Vector Variable Name = String "'CoilCurrent e'"", file=elmer_file)
-                        print("  Electrode Area = Real $ Ae_" + str(ecomp.name) , file=elmer_file)
-                    else:    # else open
-                        bnds = ecomp.getOpenTerminals()
-                        print("  Electrode Boundaries(2) = Integer " + str(bnds[0]) + " " + str(bnds[1]) , file=elmer_file)
-                        print("  Circuit Equation Voltage Factor = Real 0.5 !(use for symmetry, e.g. half of the coil)", file=elmer_file)
+                    # massive coils
+                    if ecomp.getCoilType() == "Massive":
+                        if ecomp.isClosed():
+                            print("  Coil Use W Vector = Logical True", file=elmer_file)
+                            print(
+                                "  W Vector Variable Name = String " "CoilCurrent e" "",
+                                file=elmer_file,
+                            )
+                            print(
+                                "  Electrode Area = Real $ Ae_" + str(ecomp.name),
+                                file=elmer_file,
+                            )
+                        else:
+                            print("  Coil Use W Vector = Logical True", file=elmer_file)
+                            print(
+                                "  W Vector Variable Name = String " "CoilCurrent e" "",
+                                file=elmer_file,
+                            )
+                            print(
+                                "  Electrode Area = Real $ Ae_" + str(ecomp.name),
+                                file=elmer_file,
+                            )
 
+                    # stranded coils
+                    if ecomp.getCoilType() == "Stranded":
+                        if ecomp.getTerminalType():  # if true = closed
+                            print("  Coil Use W Vector = Logical True", file=elmer_file)
+                            print(
+                                "  W Vector Variable Name = String " "CoilCurrent e" "",
+                                file=elmer_file,
+                            )
+                            print(
+                                "  Electrode Area = Real $ Ae_" + str(ecomp.name),
+                                file=elmer_file,
+                            )
+                        else:  # else open
+                            bnds = ecomp.getOpenTerminals()
+                            print(
+                                "  Electrode Boundaries(2) = Integer "
+                                + str(bnds[0])
+                                + " "
+                                + str(bnds[1]),
+                                file=elmer_file,
+                            )
+                            print(
+                                "  Circuit Equation Voltage Factor = Real 0.5 !(use for symmetry, e.g. half of the coil)",
+                                file=elmer_file,
+                            )
 
-                # foil winding
-                if(ecomp.getCoilType() == "Foil winding"):
-                    if(ecomp.getTerminalType()):
-                        pass
-                    else:
-                        bnds = ecomp.getOpenTerminals()
-                        print("  Electrode Boundaries(2) = Integer " + str(bnds[0]) + " " + str(bnds[1]) , file=elmer_file)
-                        print("  Circuit Equation Voltage Factor = Real 0.5 !(use for symmetry, e.g. half of the coil)", file=elmer_file)
+                    # foil winding
+                    if ecomp.getCoilType() == "Foil winding":
+                        if ecomp.getTerminalType():
+                            pass
+                        else:
+                            bnds = ecomp.getOpenTerminals()
+                            print(
+                                "  Electrode Boundaries(2) = Integer "
+                                + str(bnds[0])
+                                + " "
+                                + str(bnds[1]),
+                                file=elmer_file,
+                            )
+                            print(
+                                "  Circuit Equation Voltage Factor = Real 0.5 !(use for symmetry, e.g. half of the coil)",
+                                file=elmer_file,
+                            )
 
-
-            if(ecomp.dimension == "2D"):
-                print("  Symmetry Coefficient = Real $ 1/(Ns_" + str(ecomp.name) + ")", file=elmer_file)
+                if ecomp.dimension == "2D":
+                    print(
+                        "  Symmetry Coefficient = Real $ 1/(Ns_"
+                        + str(ecomp.name)
+                        + ")",
+                        file=elmer_file,
+                    )
             print("End \n", file=elmer_file)
 
     # store body forces per circuit to print later
@@ -1915,11 +2307,30 @@ def write_sif_additions(c, source_vector, ofile):
             val_sign = "-"
 
         if isinstance(value, complex):
-            body_force_list.append("  " + name + "_Source re = Real $ " + val_sign + "re_" + str_val.strip("-"))
-            body_force_list.append("  " + name + "_Source im = Real $ " + val_sign + "im_" + str_val.strip("-"))
+            body_force_list.append(
+                "  "
+                + name
+                + "_Source re = Real $ "
+                + val_sign
+                + "re_"
+                + str_val.strip("-")
+            )
+            body_force_list.append(
+                "  "
+                + name
+                + "_Source im = Real $ "
+                + val_sign
+                + "im_"
+                + str_val.strip("-")
+            )
         else:
-            body_force_list.append("  " + name + "_Source = Variable \"time\" \n  \t Real MATC \""
-                                   + str_val.strip("-") + "\"")
+            body_force_list.append(
+                "  "
+                + name
+                + '_Source = Variable "time" \n  \t Real MATC "'
+                + str_val.strip("-")
+                + '"'
+            )
 
     elmer_file.close()
 
@@ -1947,53 +2358,122 @@ def write_parameters(c, ofile):
     """
 
     components = c.components[0]
-    elmer_file = open(ofile, 'a')
+    elmer_file = open(ofile, "a")
 
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Parameters", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("", file=elmer_file)
 
     print("! General Parameters ", file=elmer_file)
     for component in components:
         if not isinstance(component, ElmerComponent):
-            if(isinstance(component.value, complex)):
-                print("! " + component.name + " = re_" + component.name + "+ j im_" + component.name + ", phase_"
-                      + component.name + " = " + str(np.degrees(cmath.phase(component.value)))
-                      + "(Deg)", file=elmer_file)
-                print("$ re_" + component.name + " = " + str(np.real(component.value)), file=elmer_file)
-                print("$ im_" + component.name + " = " + str(np.imag(component.value)), file=elmer_file)
-                print("$ phase_" + component.name + " = " + str(cmath.phase(component.value)), file=elmer_file)
+            if isinstance(component.value, complex):
+                print(
+                    "! "
+                    + component.name
+                    + " = re_"
+                    + component.name
+                    + "+ j im_"
+                    + component.name
+                    + ", phase_"
+                    + component.name
+                    + " = "
+                    + str(np.degrees(cmath.phase(component.value)))
+                    + "(Deg)",
+                    file=elmer_file,
+                )
+                print(
+                    "$ re_" + component.name + " = " + str(np.real(component.value)),
+                    file=elmer_file,
+                )
+                print(
+                    "$ im_" + component.name + " = " + str(np.imag(component.value)),
+                    file=elmer_file,
+                )
+                print(
+                    "$ phase_"
+                    + component.name
+                    + " = "
+                    + str(cmath.phase(component.value)),
+                    file=elmer_file,
+                )
             else:
-                print("$ " + component.name + " = " + str(component.value), file=elmer_file)
+                print(
+                    "$ " + component.name + " = " + str(component.value),
+                    file=elmer_file,
+                )
     print("", file=elmer_file)
 
     for component in components:
         if isinstance(component, ElmerComponent):
-            print("! Parameters in Component " + str(component.component_number) + ": "
-                  + str(component.name), file=elmer_file)
+            print(
+                "! Parameters in Component "
+                + str(component.component_number)
+                + ": "
+                + str(component.name),
+                file=elmer_file,
+            )
 
-            if(component.getCoilType() == "Stranded"):
-                print("$ N_" + component.name + " = " + str(component.getNumberOfTurns())
-                      + "\t ! Number of Turns", file=elmer_file)
-                print("$ R_" + component.name + " = " + str(component.getResistance())
-                      + "\t ! Coil Resistance", file=elmer_file)
+            if component.getCoilType() == "Stranded":
+                print(
+                    "$ N_"
+                    + component.name
+                    + " = "
+                    + str(component.getNumberOfTurns())
+                    + "\t ! Number of Turns",
+                    file=elmer_file,
+                )
+                print(
+                    "$ R_"
+                    + component.name
+                    + " = "
+                    + str(component.getResistance())
+                    + "\t ! Coil Resistance",
+                    file=elmer_file,
+                )
 
-            if(component.getCoilType() == "Foil winding"):
-                print("$ N_" + component.name + " = " + str(component.getNumberOfTurns())
-                      + "\t ! Number of Turns", file=elmer_file)
-                print("$ L_" + component.name + " = " + str(component.getCoilThickness())
-                      + "\t ! Coil Thickness", file=elmer_file)
+            if component.getCoilType() == "Foil winding":
+                print(
+                    "$ N_"
+                    + component.name
+                    + " = "
+                    + str(component.getNumberOfTurns())
+                    + "\t ! Number of Turns",
+                    file=elmer_file,
+                )
+                print(
+                    "$ L_"
+                    + component.name
+                    + " = "
+                    + str(component.getCoilThickness())
+                    + "\t ! Coil Thickness",
+                    file=elmer_file,
+                )
 
-            print("$ Ns_" + component.name + " = " + str(component.sector)
-                  + "\t ! Sector/Symmetry Coefficient (e.g. 4 is 1/4 of the domain)", file=elmer_file)
+            print(
+                "$ Ns_"
+                + component.name
+                + " = "
+                + str(component.sector)
+                + "\t ! Sector/Symmetry Coefficient (e.g. 4 is 1/4 of the domain)",
+                file=elmer_file,
+            )
 
     print("", file=elmer_file)
 
     elmer_file.close()
 
 
-def write_elmer_circuit_file(c, elmerA, elmerB, elmersource, unknown_names, num_nodes, num_edges, ofile):
+def write_elmer_circuit_file(
+    c, elmerA, elmerB, elmersource, unknown_names, num_nodes, num_edges, ofile
+):
     """
     Main writing function. It lays out step by step the Elmer circuit writing process:
 
@@ -2038,7 +2518,9 @@ def write_elmer_circuit_file(c, elmerA, elmerB, elmersource, unknown_names, num_
     components = c.components[0]
 
     # only run script if there are no elmer components
-    check_elmer_instance = [isinstance(components[i], ElmerComponent) for i in range(len(components))]
+    check_elmer_instance = [
+        isinstance(components[i], ElmerComponent) for i in range(len(components))
+    ]
     # check_component_values = [(component.value is None) for component in components]
 
     # condition that no elmer components in circuit
@@ -2053,14 +2535,17 @@ def write_elmer_circuit_file(c, elmerA, elmerB, elmersource, unknown_names, num_
         write_unknown_vector(c, unknown_names, ofile)
         write_source_vector(c, elmersource, ofile)
         write_kcl_equations(c, num_nodes, num_variables, elmerA, elmerB, ofile)
-        write_kvl_equations(c, num_nodes, num_edges, num_variables, elmerA, elmerB, unknown_names, ofile)
-        write_component_equations(c, num_nodes, num_edges, num_variables, elmerA, elmerB, ofile)
+        write_kvl_equations(
+            c, num_nodes, num_edges, num_variables, elmerA, elmerB, unknown_names, ofile
+        )
+        write_component_equations(
+            c, num_nodes, num_edges, num_variables, elmerA, elmerB, ofile
+        )
         body_forces = write_sif_additions(c, elmersource, ofile)
 
         print("Circuit model will be written in:", ofile)
 
         return body_forces
-
 
     else:
         print("No ElmerComponents found in Model Description")
@@ -2083,11 +2568,17 @@ def write_body_forces(body_force_def, ofile):
     None
     """
 
-    elmer_file = open(ofile, 'a')
+    elmer_file = open(ofile, "a")
 
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! Sources in SIF ", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("", file=elmer_file)
 
     print("Body Force 1", file=elmer_file)
@@ -2095,15 +2586,21 @@ def write_body_forces(body_force_def, ofile):
     for ckt_body_force in body_force_def:
         if ckt_body_force is not None:
             for body_force in ckt_body_force:
-                print(body_force , file=elmer_file)
+                print(body_force, file=elmer_file)
 
     print("End", file=elmer_file)
 
     print("", file=elmer_file)
 
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
     print("! End of Circuit", file=elmer_file)
-    print("! -----------------------------------------------------------------------------", file=elmer_file)
+    print(
+        "! -----------------------------------------------------------------------------",
+        file=elmer_file,
+    )
 
     elmer_file.close()
 
@@ -2137,7 +2634,9 @@ def solve_circuit(circuit):
         ref_node = c.ref_node
 
         # only run script if there are no elmer components
-        check_elmer_instance = [isinstance(components[i], ElmerComponent) for i in range(len(components))]
+        check_elmer_instance = [
+            isinstance(components[i], ElmerComponent) for i in range(len(components))
+        ]
         check_component_values = [(component.value is None) for component in components]
 
         # condition that no elmer components in circuit
@@ -2146,9 +2645,9 @@ def solve_circuit(circuit):
 
         # if there are elmer components or there's no value component break the loop
         if isElmerComponent or isValueNone:
-            #print("This model will not be solved externally due to:")
+            # print("This model will not be solved externally due to:")
             print("Elmer Circuit Model:", isElmerComponent)
-            #print("Component Values not Defined:", isValueNone)
+            # print("Component Values not Defined:", isValueNone)
 
             if isElmerComponent:
                 print("Include circuit file in .sif file to be run with ElmerSolver")
@@ -2226,8 +2725,8 @@ def generate_elmer_circuits(circuit, ofile):
     write_file_header(circuit, ofile)
 
     # loop over all circuits
-    source_components = []     # store sources separately for Body Force 1
-    for i in range(1, len(circuit)+1):
+    source_components = []  # store sources separately for Body Force 1
+    for i in range(1, len(circuit) + 1):
 
         # loop over all circuits
         c = circuit[i]
@@ -2263,7 +2762,9 @@ def generate_elmer_circuits(circuit, ofile):
         f_str = get_rhs_str(components, num_edges, indi, indv)
 
         # M Matrix and b full source vector RHS (M1x + M2x' = b)
-        M1_str, M2_str, b_str = get_tableau_matrix_str(A_str, R_str, G_str, L_str, C_str, f_str, num_nodes, num_edges)
+        M1_str, M2_str, b_str = get_tableau_matrix_str(
+            A_str, R_str, G_str, L_str, C_str, f_str, num_nodes, num_edges
+        )
 
         # get/create unknown vector name and the v_comp index and source names/index
         unknown_names, vcomp_rows = create_unknown_name(components, ref_node, i)
@@ -2272,10 +2773,14 @@ def generate_elmer_circuits(circuit, ofile):
         zero_rows_str = get_zero_rows_str(M1_str, M2_str, b_str)
 
         # create elmer matrices
-        elmerA, elmerB, elmersource = elmer_format_matrix(M1_str, M2_str, b_str, vcomp_rows, zero_rows_str)
+        elmerA, elmerB, elmersource = elmer_format_matrix(
+            M1_str, M2_str, b_str, vcomp_rows, zero_rows_str
+        )
 
         # create elmer circuits file
-        body_forces = write_elmer_circuit_file(c, elmerA, elmerB, elmersource, unknown_names, num_nodes, num_edges, ofile)
+        body_forces = write_elmer_circuit_file(
+            c, elmerA, elmerB, elmersource, unknown_names, num_nodes, num_edges, ofile
+        )
         all_body_forces.append(body_forces)
 
         # just for debugging. valued matrices and solution solve if no elmer components
@@ -2283,10 +2788,10 @@ def generate_elmer_circuits(circuit, ofile):
 
     write_body_forces(all_body_forces, ofile)
 
+
 # for installation testing (temporary)
 def say_hello(name=None):
     if name is None:
         return "Hello, World!"
     else:
         return f"Hello, {name}!"
-
