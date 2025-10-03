@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from elmer_circuitbuilder.elmer_circuitbuilder import (
+from elmer_circuitbuilder import (
     ElmerComponent,
     Circuit,
-    create_unknown_name,
     generate_elmer_circuits,
 )
+from elmer_circuitbuilder.core import create_unknown_name
 
 
 def test_elmer_component_basic_properties_and_methods():

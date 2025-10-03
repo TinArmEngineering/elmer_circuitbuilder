@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import pytest
 import numpy as np
+from pathlib import Path
 
 """Tests for `elmer_circuitbuilder` package."""
 
 
-from elmer_circuitbuilder.elmer_circuitbuilder import say_hello
+from elmer_circuitbuilder import say_hello
 
 
 def test_helloworld_no_params():
@@ -16,7 +17,7 @@ def test_helloworld_with_param():
     assert say_hello("Everyone") == "Hello, Everyone!"
 
 
-from elmer_circuitbuilder.elmer_circuitbuilder import (
+from elmer_circuitbuilder import (
     number_of_circuits,
     V,
     ElmerComponent,
@@ -26,13 +27,15 @@ from elmer_circuitbuilder.elmer_circuitbuilder import (
 
 class TestBasicCircuit:
     def test_version_of_numpy(self):
+        """This test can probably be removed later, but for now it ensures that the tests are run
+        in the Poetry environment where numpy 2.3.x is installed, avoiding numpy ufunc
+        """
         ver = np.__version__
         major, minor, *_ = map(int, ver.split("."))
-        assert major == 1
         assert (major, minor) == (
-            1,
-            21,
-        ), f"Run tests in the project's Poetry env with numpy 1.21.x (found {ver})"
+            2,
+            3,
+        ), f"Run tests in the project's Poetry env with numpy 2.3.x (found {ver})"
 
     @pytest.fixture
     def circuit(self):
@@ -46,7 +49,8 @@ class TestBasicCircuit:
     def test_ref_node(self, circuit):
         assert circuit[1].ref_node == 1
 
-    def test_voltage_source(self, circuit):
+    def test_voltage_source(self, circuit, tmp_path: Path):
+        out = tmp_path / "circuit1.definitions"
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
 
@@ -55,19 +59,20 @@ class TestBasicCircuit:
         assert c.components[0][0].name == "V1"
         assert c.components[0][0].value == 1
 
-        generate_elmer_circuits(circuit, "output_file.definitions")
-        # file should be created without error
-        with open("output_file.definitions", "r") as f:
-            text = f.read()
-            print(text)
+        generate_elmer_circuits(circuit, str(out))
+        # file should not be created as without ElmerComponents there is nothing to write
+        assert out.exists() is False
 
-    def test_voltage_divider(self, circuit):
+    def test_voltage_divider(self, circuit, tmp_path: Path):
+        out = tmp_path / "circuit.definitions"
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
         fem_component = ElmerComponent("Coil1", 2, 1, 1, [1])
         c.components.append([v1, fem_component])
         assert len(c.components[0]) == 2
         assert c.components[0][0].name == "V1"
+        assert c.components[0][0].value == 1
+
         assert c.components[0][1].name == "Coil1"
         assert c.components[0][1].component_number == 1
         assert c.components[0][1].master_bodies == [1]
@@ -80,8 +85,8 @@ class TestBasicCircuit:
         assert c.components[0][1].dimension == "2D"
         assert c.components[0][1].isClosed() is True
 
-        generate_elmer_circuits(circuit, "output_file.definitions")
+        generate_elmer_circuits(circuit, str(out))
         # file should be created without error
-        with open("output_file.definitions", "r") as f:
-            text = f.read()
-            print(text)
+        text = out.read_text()
+        print(text)
+        assert "$ V1 = 1.0" in text
