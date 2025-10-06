@@ -146,3 +146,4 @@ cython_debug/
 .build_id
 .venv*
 numpy-1.21.0-cp310-cp310-linux_x86_64.whl
+src/elmer_circuitbuilder/_version.py
