@@ -60,6 +60,8 @@ class TestBasicCircuit:
         assert twocircuits[2].ref_node == 2  # set in fixture
 
     def test_voltage_source(self, circuit, tmp_path: Path):
+        """A circuit with only a voltage source should not produce a file, as there are no
+        ElmerComponents to write."""
         out = tmp_path / "test_voltage_source.definitions"
         # make sure file doesn't exist before test
         if out.exists():
@@ -78,6 +80,8 @@ class TestBasicCircuit:
         assert out.exists() is False
 
     def test_voltage_divider(self, circuit, tmp_path: Path):
+        """A circuit with a voltage source and an ElmerComponent should produce a file."""
+
         out = tmp_path / "test_voltage_divider.definitions"
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
@@ -104,3 +108,47 @@ class TestBasicCircuit:
         text = out.read_text()
         print(text)
         assert "$ V1 = 1.0" in text
+
+    def test_two_circuits_with_voltage_divider(self, twocircuits, tmp_path: Path):
+        """A test with two circuits to ensure that multiple circuits are handled correctly."""
+        out = tmp_path / "test_two_circuits.definitions"
+        c1 = twocircuits[1]
+        v1 = V("V1", 1, 2, 1.0)
+        fem_component1 = ElmerComponent("Coil1", 2, 1, 1, [1])
+        c1.components.append([v1, fem_component1])
+
+        c2 = twocircuits[2]
+        v2 = V("V2", 1, 2, 5.0)
+        fem_component2 = ElmerComponent("Coil2", 2, 1, 1, [2])
+        c2.components.append([v2, fem_component2])
+
+        generate_elmer_circuits(twocircuits, str(out))
+        # file should be created without error
+        text = out.read_text()
+        print(text)
+        assert "$ Circuits = 2" in text
+        assert "$ V1 = 1.0" in text
+        assert "$ V2 = 5.0" in text
+
+    @pytest.mark.xfail(
+        reason="It is not clear what the intention is if there is one circuit with no ElmerComponents"
+    )
+    def test_two_circuits_one_with_no_components(self, twocircuits, tmp_path: Path):
+        """A test with two circuits to ensure that multiple circuits are handled correctly."""
+        out = tmp_path / "test_two_circuits_one_with_no_components.definitions"
+        c1 = twocircuits[1]
+        v1 = V("V1", 1, 2, 1.0)
+        c1.components.append([v1])
+
+        c2 = twocircuits[2]
+        v2 = V("V2", 1, 2, 5.0)
+        fem_component2 = ElmerComponent("Coil2", 2, 1, 1, [2])
+        c2.components.append([v2, fem_component2])
+
+        generate_elmer_circuits(twocircuits, str(out))
+        # file should be created without error
+        text = out.read_text()
+        print(text)
+        assert "$ Circuits = 2" in text
+        assert "$ V1 = 1.0" in text
+        assert "$ V2 = 5.0" in text
