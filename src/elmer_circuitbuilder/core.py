@@ -384,7 +384,8 @@ class StepwiseResistor(Component):
         str
             Returns resistance value as a string. If time and resistance_after are defined,
             it returns a MATC variable to be used in Elmer's .sif file."""
-        if self.__time is None and self.__resistance_after is None:
+        # if time and resistance_after are defined, return MATC string even if they are zero
+        if not (self.__time is None) and not (self.__resistance_after is None):
             res_string = f'Variable time \n    Real MATC "if(tx<{self.__time}) {{{self.__resistance_before}}} else {{{self.__resistance_after}}}"'
             return res_string
         else:
