@@ -2,6 +2,9 @@
 import pytest
 import numpy as np
 from pathlib import Path
+from packaging import version
+
+version.VERSION_PATTERN
 
 """Tests for `elmer_circuitbuilder` package."""
 
@@ -23,6 +26,21 @@ from elmer_circuitbuilder import (
     ElmerComponent,
     generate_elmer_circuits,
 )
+
+
+class TestImportAndVersion:
+    def test_version(self):
+        import re
+        import elmer_circuitbuilder
+
+        ver = elmer_circuitbuilder.__version__
+        assert isinstance(ver, str)
+        # Ensure the version can be parsed by packaging (will raise InvalidVersion on failure)
+        version.Version(ver)
+        # Also assert it matches the canonical VERSION_PATTERN from packaging
+        assert re.match(
+            rf"^{version.VERSION_PATTERN}$", ver
+        ), f"__version__ {ver!r} does not match packaging.VERSION_PATTERN"
 
 
 class TestBasicCircuit:
@@ -85,13 +103,14 @@ class TestBasicCircuit:
         out = tmp_path / "test_voltage_divider.definitions"
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
-        fem_component = ElmerComponent("Coil1", 2, 1, 1, [1])
+        COIL_NAME = "Coil1"
+        fem_component = ElmerComponent(COIL_NAME, 2, 1, 1, [1])
         c.components.append([v1, fem_component])
         assert len(c.components[0]) == 2
         assert c.components[0][0].name == "V1"
         assert c.components[0][0].value == 1
 
-        assert c.components[0][1].name == "Coil1"
+        assert c.components[0][1].name == COIL_NAME
         assert c.components[0][1].component_number == 1
         assert c.components[0][1].master_bodies == [1]
         assert c.components[0][1].getCoilType() == "Massive"
@@ -106,8 +125,42 @@ class TestBasicCircuit:
         generate_elmer_circuits(circuit, str(out))
         # file should be created without error
         text = out.read_text()
-        print(text)
+
+        # Check for all expected sections in the output
+        assert "! Number of Circuits in Model" in text
+        assert "$ Circuits = 1" in text
+        assert "! Parameters" in text
         assert "$ V1 = 1.0" in text
+        assert "! Parameters in Component 1: Coil1" in text
+        assert "$ Ns_Coil1 = 1" in text
+        assert "! Matrix Size Declaration and Matrix Initialization" in text
+        assert "$ C.1.variables = 5" in text
+        assert "! Dof/Unknown Vector Definition" in text
+        assert '$ C.1.name.1 = "i_V1"' in text
+        assert '$ C.1.name.2 = "i_component(1)"' in text
+        assert '$ C.1.name.3 = "v_V1"' in text
+        assert '$ C.1.name.4 = "v_component(1)"' in text
+        assert '$ C.1.name.5 = "u_2_circuit_1"' in text
+        assert "! Source Vector Definition" in text
+        assert '$ C.1.source.5 = "V1_Source"' in text
+        assert "! KCL Equations" in text
+        assert "$ C.1.B(0,0) = -1" in text
+        assert "$ C.1.B(0,1) = 1" in text
+        assert "! KVL Equations" in text
+        assert "$ C.1.B(1,2) = 1" in text
+        assert "$ C.1.B(1,4) = -1" in text
+        assert "$ C.1.B(2,3) = -1" in text
+        assert "$ C.1.B(2,4) = 1" in text
+        assert "! Component Equations" in text
+        assert "$ C.1.B(4,2) = 1" in text
+        assert "! Additions in SIF file" in text
+        assert f'Name = "{COIL_NAME}"' in text
+        assert f'Coil Type = "{c.components[0][1].getCoilType()}"' in text
+        assert "Symmetry Coefficient = Real $ 1/(Ns_Coil1)" in text
+        assert "! Sources in SIF" in text
+        assert "Body Force 1" in text
+        assert 'V1_Source = Variable "time"' in text
+        assert "! End of Circuit" in text
 
     def test_two_circuits_with_voltage_divider(self, twocircuits, tmp_path: Path):
         """A test with two circuits to ensure that multiple circuits are handled correctly."""

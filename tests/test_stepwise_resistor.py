@@ -43,8 +43,7 @@ def test_create_unknown_name_includes_component_indices():
 
 def test_generate_elmer_circuits_writes_const_resistor(tmp_path: Path):
     # Use a plain numeric resistor (no time/resistance_after) so generator
-    # exercises numeric path and doesn't produce string-MATC arrays that
-    # may trigger NumPy ufunc errors.
+    # exercises numeric path and doesn't produce string-MATC
     r = StepwiseResistor("R1", 1, 2, 5, 10)  # plain numeric resistance
     components = [r]
     c = Circuit(
@@ -63,9 +62,37 @@ def test_generate_elmer_circuits_writes_const_resistor(tmp_path: Path):
     assert "10" in text
 
 
-def test_generate_elmer_circuits_writes_stepwise_resistor(tmp_path: Path):
+@pytest.mark.parametrize(
+    "time,resistance_after,expect_MATAC_string",
+    [
+        (
+            1.0,
+            100.0,
+            True,
+        ),  # should produce a MATC string
+        (0.0, 0.0, True),  # should produce a MATC string
+        (0.5, 0.0, True),  # should produce a MATC string
+        (
+            None,
+            None,
+            False,
+        ),  # no time/resistance_after means constant resistance only
+        (
+            2.0,
+            None,
+            False,
+        ),  # edge case: resistance_after None means constant resistance only
+        (None, 50.0, False),  # edge case: time None means constant resistance only
+    ],
+)
+def test_generate_elmer_circuits_writes_stepwise_resistor(
+    tmp_path: Path, time, resistance_after, expect_MATAC_string
+):
+    RESISTANCE_BEFORE = 1e6
     # create stepwise resistor with time variant resistance to ensure MATC string propagates to file
-    r = StepwiseResistor("R1", 1, 2, 5, 10, time=0.25, resistance_after=15)
+    r = StepwiseResistor(
+        "R1", 1, 2, 5, RESISTANCE_BEFORE, time=time, resistance_after=resistance_after
+    )
     components = [r]
     c = Circuit(
         1, [components]
@@ -76,10 +103,42 @@ def test_generate_elmer_circuits_writes_stepwise_resistor(tmp_path: Path):
     generate_elmer_circuits(circuits, str(out))
 
     text = out.read_text()
+    print(text)
     # file should contain the Component block and the printed Resistance entry
     assert f"Component {r.component_number}" in text
     # For resistor stepwise, write_sif_additions prints "Component  Type = String Resistor" then "Resistance = ..."
     assert "String Resistor" in text or "Component  Type" in text
     assert "Resistance" in text
     # and the MATC expression (or the before/after values) should appear somewhere
-    assert "if(tx<" in text or ("10" in text and "15" in text)
+
+    # Allow either a regex pattern (if the test provided one) or a simple substring.
+    # When a complex MATC check is required, use a robust regex that:
+    #  - permits optional whitespace/newline between the "Resistance" line and the "Real MATC" line
+    #  - matches floating point numbers with \d+(?:\.\d+)?
+    matc_regex = r"""
+        Resistance\s*=\s*Variable\s*time      # first line
+        \s*                                   # any whitespace/newline
+        Real\s+MATC\s+"if\(tx<                # start of MATC string
+        (?P<threshold>\d+(?:\.\d+)?)\)        # threshold value (e.g. 1.0)
+        \s*\{(?P<before>\d+(?:\.\d+)?)\}      # value before
+        \s*else\s*\{(?P<after>\d+(?:\.\d+)?)\}# value after
+        "\s*                                   # trailing quote
+    """
+    cosnt_regex = r"""
+        Resistance\s*=\s*(?P<constant>\d+(?:\.\d+)?)  # constant numeric resistance
+    """
+    if expect_MATAC_string:
+        regexp_str = matc_regex
+    else:
+        regexp_str = cosnt_regex
+
+    m = re.search(regexp_str, text, re.MULTILINE | re.DOTALL | re.VERBOSE)
+    assert m, f"MATC pattern not found in output. Snippet:\n{text[-600:]}"
+    # optional: assert numeric groups are what we expect in this param case
+    # (use the param values 'time' and 'resistance_after' from the outer test to check)
+    if time is not None and resistance_after is not None:
+        assert float(m.group("threshold")) == pytest.approx(time)
+        print(float(m.group("before")))
+        print(float(m.group("after")))
+        assert float(m.group("before")) == pytest.approx(RESISTANCE_BEFORE)
+        assert float(m.group("after")) == pytest.approx(resistance_after)
