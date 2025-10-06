@@ -28,9 +28,9 @@ packages = [{ include = "elmer_circuitbuilder", from = "src" }]
 
 # Keep Poetry dev/test groups here so `poetry install --with dev` installs them
 [tool.poetry.group.dev.dependencies]
-pytest = "^6.2.4"
-pytest-cov = "^2.12"
-flake8 = "^4.0.1"
+pytest = "^8.2.0"
+pytest-cov = "^5.0.0"
+flake8 = "^7.0.0"
 
 [tool.poetry.group.test.dependencies]
 mock = "^5.1.0"
