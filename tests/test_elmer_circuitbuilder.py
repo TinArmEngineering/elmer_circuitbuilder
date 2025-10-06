@@ -43,14 +43,28 @@ class TestBasicCircuit:
         c[1].ref_node = 1
         return c
 
+    @pytest.fixture
+    def twocircuits(self):
+        c = number_of_circuits(2)
+        c[2].ref_node = 2  # non-default ref node for testing
+        return c
+
     def test_number_of_circuits(self, circuit):
         assert len(circuit) == 1
 
     def test_ref_node(self, circuit):
         assert circuit[1].ref_node == 1
 
+    def test_defuault_ref_node(self, twocircuits):
+        assert twocircuits[1].ref_node == 1  # this is the default value
+        assert twocircuits[2].ref_node == 2  # set in fixture
+
     def test_voltage_source(self, circuit, tmp_path: Path):
-        out = tmp_path / "circuit1.definitions"
+        out = tmp_path / "test_voltage_source.definitions"
+        # make sure file doesn't exist before test
+        if out.exists():
+            out.unlink()
+        assert out.exists() is False
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
 
@@ -64,7 +78,7 @@ class TestBasicCircuit:
         assert out.exists() is False
 
     def test_voltage_divider(self, circuit, tmp_path: Path):
-        out = tmp_path / "circuit.definitions"
+        out = tmp_path / "test_voltage_divider.definitions"
         c = circuit[1]
         v1 = V("V1", 1, 2, 1.0)
         fem_component = ElmerComponent("Coil1", 2, 1, 1, [1])
