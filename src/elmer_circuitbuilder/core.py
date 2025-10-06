@@ -342,13 +342,13 @@ class ElmerComponent(Component):
 class StepwiseResistor(Component):
     def __init__(
         self,
-        name,
-        pin1,
-        pin2,
-        component_number,
-        resistance,
-        time=None,
-        resistance_after=None,
+        name: str,
+        pin1: int,
+        pin2: int,
+        component_number: int,
+        resistance: float,
+        time: None | float = None,
+        resistance_after: None | float = None,
     ):
         Component.__init__(self, name, pin1, pin2)
         """
@@ -384,8 +384,8 @@ class StepwiseResistor(Component):
         str
             Returns resistance value as a string. If time and resistance_after are defined,
             it returns a MATC variable to be used in Elmer's .sif file."""
-        if self.__time and self.__resistance_after:
-            res_string = f'Variable time \n Real MATC "if(tx<{self.__time}) {{{self.__resistance_before}}} else {{{self.__resistance_after}}}"'
+        if self.__time is None and self.__resistance_after is None:
+            res_string = f'Variable time \n    Real MATC "if(tx<{self.__time}) {{{self.__resistance_before}}} else {{{self.__resistance_after}}}"'
             return res_string
         else:
             # if no time and resistance_after is defined, return resistance_before
@@ -2196,7 +2196,7 @@ def write_sif_additions(c, source_vector, ofile):
                 )
 
             if ecomp.component_type == "resistor":
-                print("  Component  Type = String Resistor", file=elmer_file)
+                print("  Component Type = String Resistor", file=elmer_file)
                 print(f"  Resistance = {ecomp.resistance}", file=elmer_file)
             else:
                 # ------------------------------------------------------------------------------
@@ -2544,6 +2544,7 @@ def write_elmer_circuit_file(
 
         num_variables = len(unknown_names)
         write_parameters(c, ofile)
+        write_matrix_initialization(c, num_variables, ofile)
         write_unknown_vector(c, unknown_names, ofile)
         write_source_vector(c, elmersource, ofile)
         write_kcl_equations(c, num_nodes, num_variables, elmerA, elmerB, ofile)
