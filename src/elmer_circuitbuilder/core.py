@@ -2518,33 +2518,16 @@ def write_elmer_circuit_file(
     body_forces : list of str
         returns n-entry vector with the names of the sources of all circuits
     """
-
     components = c.components[0]
-    num_variables = len(unknown_names)
-    write_parameters(c, ofile)
-    write_unknown_vector(c, unknown_names, ofile)
-    write_source_vector(c, elmersource, ofile)
-    write_kcl_equations(c, num_nodes, num_variables, elmerA, elmerB, ofile)
-    write_kvl_equations(
-        c, num_nodes, num_edges, num_variables, elmerA, elmerB, unknown_names, ofile
-    )
-    write_component_equations(
-        c, num_nodes, num_edges, num_variables, elmerA, elmerB, ofile
-    )
-    body_forces = write_sif_additions(c, elmersource, ofile)
-
     # only run script if there are no elmer components
     check_elmer_instance = [
         isinstance(components[i], ElmerComponent)
         or isinstance(components[i], StepwiseResistor)
         for i in range(len(components))
     ]
-    # check_component_values = [(component.value is None) for component in components]
-    print("Circuit model will be written in:", ofile)
 
     # condition that no elmer components in circuit
     isElmerComponent = True in check_elmer_instance
-    return body_forces
 
     # This function should only write a file if there are Elmer-specific components.
     # Standalone circuits are handled by `solve_circuit` for validation.
@@ -2556,6 +2539,8 @@ def write_elmer_circuit_file(
         # The `solve_circuit` function will handle validation for these cases.
         return None
     else:
+        # check_component_values = [(component.value is None) for component in components]
+        print("Circuit model will be written in:", ofile)
 
         num_variables = len(unknown_names)
         write_parameters(c, ofile)
@@ -2569,8 +2554,6 @@ def write_elmer_circuit_file(
             c, num_nodes, num_edges, num_variables, elmerA, elmerB, ofile
         )
         body_forces = write_sif_additions(c, elmersource, ofile)
-
-        print("Circuit model will be written in:", ofile)
 
         return body_forces
 
@@ -2747,14 +2730,11 @@ def generate_elmer_circuits(circuit, ofile):
     # create list to store all body forces from each circuit def
     all_body_forces = []
 
-    # write elmer file header
-    write_file_header(circuit, ofile)
+    fileHeaderWriten = False
 
     # loop over all circuits
-    source_components = []  # store sources separately for Body Force 1
-    for i in range(1, len(circuit) + 1):
+    for i in circuit:
 
-        # loop over all circuits
         c = circuit[i]
         components = c.components[0]
         ref_node = c.ref_node
@@ -2766,8 +2746,11 @@ def generate_elmer_circuits(circuit, ofile):
         ]
         isElmerComponent = True in check_elmer_instance
 
-        # For standalone circuits, do not generate a file.
-        # The `solve_circuit` call below will handle validation.
+        # For standalone circuits, do not add further circuits to the file.
+        #
+        if not fileHeaderWriten and isElmerComponent:
+            write_file_header(circuit, ofile)
+            fileHeaderWriten = True
         if not isElmerComponent:
             print(f"Circuit {i} contains no ElmerComponents. Skipping file generation.")
             solve_circuit(circuit)
@@ -2825,8 +2808,9 @@ def generate_elmer_circuits(circuit, ofile):
 
         # just for debugging. valued matrices and solution solve if no elmer components
         solve_circuit(circuit)
-
-    write_body_forces(all_body_forces, ofile)
+    # only write body forces if there are any
+    if all_body_forces:
+        write_body_forces(all_body_forces, ofile)
 
 
 # for installation testing (temporary)
