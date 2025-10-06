@@ -17,20 +17,22 @@ __all__ = [
 ]
 
 # When the package is installed, the dynamic version will be written into the distribution metadata.
-# Use importlib.metadata to obtain it at runtime; fall back to a sensible default when unavailable.
+# Prefer generated file written by poetry-dynamic-versioning
 try:
-    from importlib.metadata import version as _get_version, PackageNotFoundError
+    from ._version import __version__  # generated at build/install time
 except Exception:
-    _get_version = None
-    PackageNotFoundError = Exception
-
-__version__ = "0.0.0"
-if _get_version is not None:
+    # fallback to distribution metadata when installed; final fallback is "0.0.0"
+    __version__ = "0.0.0"
     try:
-        __version__ = _get_version("elmer_circuitbuilder")
-    except PackageNotFoundError:
-        # not installed, keep fallback
-        pass
+        from importlib.metadata import version as _get_version, PackageNotFoundError
+    except Exception:
+        _get_version = None
+        PackageNotFoundError = Exception
+    if _get_version is not None:
+        try:
+            __version__ = _get_version("elmer_circuitbuilder")
+        except PackageNotFoundError:
+            pass
 
 # Import the public API from the implementation module (core)
 try:

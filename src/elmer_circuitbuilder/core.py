@@ -1576,6 +1576,10 @@ def write_file_header(circuit, ofile):
     ----------
     None
     """
+    import importlib
+
+    pkg = importlib.import_module("elmer_circuitbuilder")
+    pkg_version = getattr(pkg, "__version__", "0.0.0")
 
     for i in range(1, len(circuit) + 1):
 
@@ -1604,32 +1608,31 @@ def write_file_header(circuit, ofile):
     if os.path.isfile(ofile) is True:
         os.remove(ofile)
 
-    elmer_file = open(ofile, "w")
-    print(
-        "! -----------------------------------------------------------------------------",
-        file=elmer_file,
-    )
-    print(
-        "! ElmerFEM Circuit Generated: " + str(date.today().strftime("%B %d, %Y")),
-        file=elmer_file,
-    )
-    print(
-        "! -----------------------------------------------------------------------------",
-        file=elmer_file,
-    )
-    print("", file=elmer_file)
-    print(
-        "! -----------------------------------------------------------------------------",
-        file=elmer_file,
-    )
-    print("! Number of Circuits in Model", file=elmer_file)
-    print(
-        "! -----------------------------------------------------------------------------",
-        file=elmer_file,
-    )
-    print("$ Circuits = " + str(len(circuit)), file=elmer_file)
-    print("", file=elmer_file)
-    elmer_file.close()
+    with open(ofile, "w") as elmer_file:
+        print(
+            "! -----------------------------------------------------------------------------",
+            file=elmer_file,
+        )
+        print(
+            f"! ElmerFEM Circuit Generated: {date.today():%B %d, %Y}, version {pkg_version}",
+            file=elmer_file,
+        )
+        print(
+            "! -----------------------------------------------------------------------------",
+            file=elmer_file,
+        )
+        print("", file=elmer_file)
+        print(
+            "! -----------------------------------------------------------------------------",
+            file=elmer_file,
+        )
+        print("! Number of Circuits in Model", file=elmer_file)
+        print(
+            "! -----------------------------------------------------------------------------",
+            file=elmer_file,
+        )
+        print("$ Circuits = " + str(len(circuit)), file=elmer_file)
+        print("", file=elmer_file)
 
 
 def write_matrix_initialization(c, num_variables, ofile):
