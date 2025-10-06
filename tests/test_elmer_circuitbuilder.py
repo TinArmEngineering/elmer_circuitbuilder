@@ -38,8 +38,8 @@ class TestImportAndVersion:
         # Ensure the version can be parsed by packaging (will raise InvalidVersion on failure)
         version.Version(ver)
         # Also assert it matches the canonical VERSION_PATTERN from packaging
-        assert re.match(
-            rf"^{version.VERSION_PATTERN}$", ver
+        assert re.fullmatch(
+            rf"^{version.VERSION_PATTERN}$", ver, re.VERBOSE
         ), f"__version__ {ver!r} does not match packaging.VERSION_PATTERN"
 
 
