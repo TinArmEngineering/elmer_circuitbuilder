@@ -142,3 +142,26 @@ def test_generate_elmer_circuits_writes_stepwise_resistor(
         print(float(m.group("after")))
         assert float(m.group("before")) == pytest.approx(RESISTANCE_BEFORE)
         assert float(m.group("after")) == pytest.approx(resistance_after)
+
+
+def test_generate_elmer_circuits_doesnot_write_invalid_MATC(tmp_path: Path):
+    RESISTANCE_BEFORE = 1.0
+    RESISTANCE_AFTER = 0.0
+    TIME = 1.0
+    # create stepwise resistor with time variant resistance to ensure MATC string propagates to file
+    r = StepwiseResistor(
+        "R1", 1, 2, 5, RESISTANCE_BEFORE, time=TIME, resistance_after=RESISTANCE_AFTER
+    )
+    components = [r]
+    c = Circuit(
+        1, [components]
+    )  # Circuit expects components as a list-containing-the-components-list
+    circuits = {1: c}
+    out = tmp_path / "elmer_circuit.sif"
+    # run generator (should create the file without raising)
+    generate_elmer_circuits(circuits, str(out))
+
+    text = out.read_text()
+    print(text)
+    # Just after ! General Parameters there should not be any line like "$ R1 = None"
+    assert "$ R1 = None" not in text
